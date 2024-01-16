@@ -337,6 +337,35 @@ static int size_counter_maps()
 
 /*=============================== BPF_MAP_TYPE_ARRAY ===============================*/
 
+/*=============================== BPF_MAP_TYPE_HASH ===============================*/
+
+static int init_filters()
+{
+	int filter_maps_fd = 0;
+
+	filter_maps_fd = bpf_map__fd(g_state.skel->maps.filter_maps);
+	if(filter_maps_fd <= 0)
+	{
+		pman_print_error("unable to get the filters map");
+		return errno;
+	}
+	for (int i = 0; i < 16; i++)
+	{
+		struct filter_map_entry filter_entry = {};
+		filter_entry.arg_num = g_state.filters[i].m_arg;
+		filter_entry.num_prefixes = g_state.filters[i].m_num_prefixes;
+		memcpy(&filter_entry.prefixes, &g_state.filters[i].m_prefixes, sizeof(u_int8_t) * 32 * 32);
+		if (bpf_map_update_elem(filter_maps_fd, &g_state.filters[i].m_syscall, &filter_entry, BPF_ANY) != 0) 
+		{
+			pman_print_error("failed to insert into filters map");
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*=============================== BPF_MAP_TYPE_HASH ===============================*/
+
 /* Here we split maps operations, before and after the loading phase.
  */
 
@@ -375,5 +404,8 @@ int pman_finalize_maps_after_loading()
 	pman_fill_ia32_to_64_table();
 	err = pman_fill_syscalls_tail_table();
 	err = err ?: pman_fill_extra_event_prog_tail_table();
+	err = err ?: init_filters();
 	return err;
 }
+
+

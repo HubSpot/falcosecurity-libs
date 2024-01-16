@@ -181,6 +181,18 @@ struct
 
 /*=============================== BPF_MAP_TYPE_ARRAY ===============================*/
 
+/*=============================== BPF_MAP_TYPE_HASH ===============================*/
+
+struct
+{
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 16);
+	__type(key, uint32_t);
+	__type(value, struct filter_map_entry);
+} filter_maps __weak SEC(".maps");
+
+/*=============================== BPF_MAP_TYPE_HASH ===============================*/
+
 /*=============================== RINGBUF MAP ===============================*/
 
 /**
@@ -205,3 +217,4 @@ struct
 } ringbuf_maps __weak SEC(".maps");
 
 /*=============================== RINGBUF MAP ===============================*/
+

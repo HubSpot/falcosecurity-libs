@@ -637,19 +637,19 @@ void sinsp::open_gvisor(const std::string& config_path, const std::string& root_
 #endif
 }
 
-void sinsp::open_modern_bpf(unsigned long driver_buffer_bytes_dim, uint16_t cpus_for_each_buffer, bool online_only, const libsinsp::events::set<ppm_sc_code> &ppm_sc_of_interest)
+void sinsp::open_modern_bpf(unsigned long driver_buffer_bytes_dim, uint16_t cpus_for_each_buffer, bool online_only, const libsinsp::events::set<ppm_sc_code> &ppm_sc_of_interest, struct filter_config filter_conf[16])
 {
 #ifdef HAS_ENGINE_MODERN_BPF
 	scap_open_args oargs {};
 
 	/* Set interesting syscalls and tracepoints. */
 	fill_ppm_sc_of_interest(&oargs, ppm_sc_of_interest);
-
 	/* Engine-specific args. */
 	struct scap_modern_bpf_engine_params params;
 	params.buffer_bytes_dim = driver_buffer_bytes_dim;
 	params.cpus_for_each_buffer = cpus_for_each_buffer;
 	params.allocate_online_only = online_only;
+	memcpy(&params.filter[0], &filter_conf[0], sizeof(struct filter_config) * 16);
 	oargs.engine_params = &params;
 
 	struct scap_platform* platform = scap_linux_alloc_platform(::on_new_entry_from_proc, this);
@@ -2298,3 +2298,4 @@ struct scap_platform* sinsp::get_scap_platform()
 {
 	return m_platform;
 }
+

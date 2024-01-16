@@ -68,6 +68,7 @@ int32_t scap_init_engine(scap_t* handle, scap_open_args* oargs, const struct sca
 
 	if(handle->m_vtable->init && (rc = handle->m_vtable->init(handle, oargs)) != SCAP_SUCCESS)
 	{
+		snprintf(handle->m_lasterr, SCAP_LASTERR_SIZE, "error running init %d", rc);
 		return rc;
 	}
 

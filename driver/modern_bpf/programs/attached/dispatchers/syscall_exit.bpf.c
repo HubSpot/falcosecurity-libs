@@ -20,7 +20,7 @@ SEC("tp_btf/sys_exit")
 int BPF_PROG(sys_exit,
 	     struct pt_regs *regs,
 	     long ret)
-{
+{	
 	int socketcall_syscall_id = -1;
 
 	uint32_t syscall_id = extract__syscall_id(regs);
@@ -87,7 +87,46 @@ int BPF_PROG(sys_exit,
 		return 0;
 	}
 
+	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
+	if (filter != NULL) {
+		const void *name_pointer = (const void *) extract__syscall_argument(regs, 1);
+		int limit;
+		if (filter->num_prefixes > 32) {
+			limit = 32;
+		} else {
+			limit = filter->num_prefixes; 
+		}
+		for (int filter_num = 0; filter_num < limit; filter_num++) {
+			char open_path_prefix[32];
+			bpf_probe_read_user_str(open_path_prefix, 32, name_pointer);
+			int match = 1;
+			if (filter->prefixes[filter_num][0] == '\0') // filter prefix is null, this means we've hit the end of the list
+			{
+				break;
+			}
+			for (int prefix_index = 0; prefix_index < 32; prefix_index++)
+			{
+				if (open_path_prefix[prefix_index] == '\0' || filter->prefixes[filter_num][prefix_index] == '\0')
+				{
+					continue;
+				}
+				if (filter->prefixes[filter_num][prefix_index] != open_path_prefix[prefix_index])
+				{
+					match = 0;			
+					break;
+				}
+			}
+			if (match == 1) 
+			{
+				bpf_printk("filtering out %s", name_pointer);
+				return 0;
+			}
+		}
+		bpf_printk("sending %s", name_pointer);
+	}
+
 	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
 
 	return 0;
 }
+

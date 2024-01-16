@@ -79,3 +79,25 @@ struct counter_map
 	uint64_t n_drops_buffer_proc_exit;
 	uint64_t n_drops_max_event_size; /* Number of drops due to an excessive event size (>64KB). */
 };
+
+struct filter_map_entry_pre
+{
+	uint32_t syscall;
+	uint16_t arg_num;	       /* Arg number containing strings to compare against prefixes */
+	uint16_t num_prefixes;      /* Length of prefix list */
+	uint8_t prefixes[32][32];  /* List of prefixes to filter */
+};
+
+struct filter_map_entry
+{
+	uint16_t arg_num;	       /* Arg number containing strings to compare against prefixes */
+	uint16_t num_prefixes;      /* Length of prefix list */
+	uint8_t prefixes[32][32];  /* List of prefixes to filter */
+};
+
+struct filter_config {
+	uint32_t m_syscall;
+	uint16_t m_arg;
+	uint16_t m_num_prefixes;
+	uint8_t m_prefixes[32][32];
+};
