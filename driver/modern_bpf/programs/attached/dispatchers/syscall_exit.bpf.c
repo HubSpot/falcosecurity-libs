@@ -20,7 +20,7 @@ SEC("tp_btf/sys_exit")
 int BPF_PROG(sys_exit,
 	     struct pt_regs *regs,
 	     long ret)
-{	
+{
 	int socketcall_syscall_id = -1;
 
 	uint32_t syscall_id = extract__syscall_id(regs);
@@ -91,8 +91,8 @@ int BPF_PROG(sys_exit,
 	if (filter != NULL) {
 		const void *name_pointer = (const void *) extract__syscall_argument(regs, 1);
 		int limit;
-		if (filter->num_prefixes > 32) {
-			limit = 32;
+		if (filter->num_prefixes > 12) { // 12 seems to be the limit for ARM with the current implementation
+			limit = 12;
 		} else {
 			limit = filter->num_prefixes; 
 		}
