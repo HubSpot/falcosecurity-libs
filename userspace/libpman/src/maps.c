@@ -407,5 +407,3 @@ int pman_finalize_maps_after_loading()
 	err = err ?: init_filters();
 	return err;
 }
-
-

@@ -337,4 +337,3 @@ bool pman_check_support()
 
 	return res;
 }
-

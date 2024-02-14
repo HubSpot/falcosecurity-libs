@@ -644,6 +644,7 @@ void sinsp::open_modern_bpf(unsigned long driver_buffer_bytes_dim, uint16_t cpus
 
 	/* Set interesting syscalls and tracepoints. */
 	fill_ppm_sc_of_interest(&oargs, ppm_sc_of_interest);
+
 	/* Engine-specific args. */
 	struct scap_modern_bpf_engine_params params;
 	params.buffer_bytes_dim = driver_buffer_bytes_dim;
@@ -2298,4 +2299,3 @@ struct scap_platform* sinsp::get_scap_platform()
 {
 	return m_platform;
 }
-
