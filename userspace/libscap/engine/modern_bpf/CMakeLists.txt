@@ -56,9 +56,3 @@ add_dependencies(scap_engine_modern_bpf pman)
 target_link_libraries(scap_engine_modern_bpf PRIVATE pman scap_engine_util scap_engine_noop)
 
 set_scap_target_properties(scap_engine_modern_bpf)
-
-message(STATUS "INCLUDE:")
-get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
-  message(STATUS "dir='${dir}'")
-endforeach()
