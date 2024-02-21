@@ -89,7 +89,7 @@ int BPF_PROG(sys_exit,
 
 	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
 	if (filter != NULL) {
-		const void *name_pointer = (const void *) extract__syscall_argument(regs, 1);
+		const void *name_pointer = (const void *) extract__syscall_argument(regs, filter->arg_num);
 		int limit;
 		if (filter->num_prefixes > 12) { // 12 seems to be the limit for ARM with the current implementation
 			limit = 12;
