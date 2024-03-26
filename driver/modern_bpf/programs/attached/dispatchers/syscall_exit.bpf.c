@@ -89,28 +89,29 @@ int BPF_PROG(sys_exit,
 
 	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
 	if (filter != NULL) {
-		const void *name_pointer = (const void *) extract__syscall_argument(regs, filter->arg_num);
-		int limit;
+		const void *syscall_arg_ptr = (const void *) extract__syscall_argument(regs, filter->arg_num);
+		int num_filter_limit;
 		if (filter->num_prefixes > 12) { // 12 seems to be the limit for ARM with the current implementation
-			limit = 12;
+			num_filter_limit = 12;
 		} else {
-			limit = filter->num_prefixes; 
+			num_filter_limit = filter->num_prefixes; 
 		}
-		for (int filter_num = 0; filter_num < limit; filter_num++) {
-			char open_path_prefix[32];
-			bpf_probe_read_user_str(open_path_prefix, 32, name_pointer);
+		char syscall_arg_prefix[32] = {0};
+		bpf_probe_read_user_str(syscall_arg_prefix, 32, syscall_arg_ptr);
+		for (int filter_idx = 0; filter_idx < num_filter_limit; filter_idx++) 
+		{
 			int match = 1;
-			if (filter->prefixes[filter_num][0] == '\0') // filter prefix is null, this means we've hit the end of the list
+			if (filter->prefixes[filter_idx][0] == '\0') // filter prefix is null, this means we've hit the end of the list
 			{
 				break;
 			}
-			for (int prefix_index = 0; prefix_index < 32; prefix_index++)
+			for (int i = 0; i < 32; i++)
 			{
-				if (open_path_prefix[prefix_index] == '\0' || filter->prefixes[filter_num][prefix_index] == '\0')
+				if (syscall_arg_prefix[i] == '\0' || filter->prefixes[filter_idx][i] == '\0')
 				{
-					continue;
+					break;
 				}
-				if (filter->prefixes[filter_num][prefix_index] != open_path_prefix[prefix_index])
+				if (filter->prefixes[filter_idx][i] != syscall_arg_prefix[i])
 				{
 					match = 0;			
 					break;
@@ -118,11 +119,11 @@ int BPF_PROG(sys_exit,
 			}
 			if (match == 1) 
 			{
-				bpf_printk("filtering out %s", name_pointer);
+				bpf_printk("filtering out %s", syscall_arg_ptr);
 				return 0;
 			}
 		}
-		bpf_printk("sending %s", name_pointer);
+		bpf_printk("sending %s", syscall_arg_ptr);
 	}
 
 	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
