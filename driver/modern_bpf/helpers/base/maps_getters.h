@@ -161,3 +161,12 @@ static __always_inline struct ringbuf_map *maps__get_ringbuf_map()
 }
 
 /*=============================== RINGBUF MAPS ===========================*/
+
+/*=============================== FILTER MAPS ===========================*/
+
+static __always_inline struct filter_map_entry* maps__get_filter_for_syscall_num(uint32_t syscall_num)
+{
+	return (struct filter_map_entry*) bpf_map_lookup_elem(&filter_maps, &syscall_num);
+}
+
+/*=============================== FILTER MAPS ===========================*/

@@ -59,7 +59,7 @@ extern "C"
 	 * @return `0` on success, `-1` in case of error.
 	 */
 	int pman_init_state(falcosecurity_log_fn log_fn, unsigned long buf_bytes_dim, uint16_t cpus_for_each_buffer,
-			    bool allocate_online_only);
+			    bool allocate_online_only, struct filter_config filter[16]);
 
 	/**
 	 * @brief Clear the `libpman` global state before it is used.

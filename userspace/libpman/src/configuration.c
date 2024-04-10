@@ -76,7 +76,7 @@ void pman_clear_state()
 }
 
 int pman_init_state(falcosecurity_log_fn log_fn, unsigned long buf_bytes_dim, uint16_t cpus_for_each_buffer,
-		    bool allocate_online_only)
+		    bool allocate_online_only, struct filter_config filters[16])
 {
 	char error_message[MAX_ERROR_MESSAGE_LEN];
 
@@ -170,6 +170,7 @@ int pman_init_state(falcosecurity_log_fn log_fn, unsigned long buf_bytes_dim, ui
 	/* These will be used during the ring buffer consumption phase. */
 	g_state.last_ring_read = -1;
 	g_state.last_event_size = 0;
+	memcpy(&g_state.filters[0], &filters[0], sizeof(struct filter_config) * 16);
 	return 0;
 }
 

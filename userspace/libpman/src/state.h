@@ -52,7 +52,7 @@ struct internal_state
 	int last_ring_read; /* Last ring from which we have correctly read an event. Could be `-1` if there were no
 			       successful reads. */
 	unsigned long last_event_size; /* Last event correctly read. Could be `0` if there were no successful reads. */
-
+	struct filter_config filters[16];
 	/* Stats v2 utilities */
 	int32_t attached_progs_fds[MODERN_BPF_PROG_ATTACHED_MAX]; /* file descriptors of attached programs, used to
 								     collect stats */

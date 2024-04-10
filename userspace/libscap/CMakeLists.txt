@@ -85,6 +85,8 @@ add_library(scap_platform_util STATIC
 	scap_procs.c
 	scap_userlist.c
 )
+target_include_directories(scap_platform_util PUBLIC ${LIBSCAP_DIR}/driver/modern_bpf)
+
 add_dependencies(scap_platform_util uthash)
 
 target_link_libraries(scap PRIVATE "${ZLIB_LIB}")
@@ -125,6 +127,8 @@ add_library(scap_event_schema STATIC
 	../../driver/syscall_ia32_64_map.c
 	linux/scap_ppm_sc.c
 )
+target_include_directories(scap_event_schema PUBLIC ${LIBSCAP_DIR}/driver/modern_bpf)
+
 add_dependencies(scap_event_schema uthash)
 
 target_link_libraries(scap PUBLIC scap_event_schema)
@@ -142,6 +146,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 		ringbuffer/devset.c
 		ringbuffer/ringbuffer.c
 	)
+	target_include_directories(scap_engine_util PUBLIC ${LIBSCAP_DIR}/driver/modern_bpf)
 	add_dependencies(scap_engine_util uthash)
 
 	target_link_libraries(scap PRIVATE scap_engine_util)
