@@ -84,7 +84,7 @@ struct filter_map_entry
 {
 	uint16_t arg_num;	       /* Arg number containing strings to compare against prefixes */
 	uint16_t num_prefixes;     /* Length of prefix list */
-	uint8_t prefixes[32][32];  /* List of prefixes to filter */
+	uint8_t prefixes[12][32];  /* List of prefixes to filter (limited to 12 entries due to limitation with ARM verifier)*/ 
 };
 
 struct filter_config
