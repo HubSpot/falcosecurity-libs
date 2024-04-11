@@ -354,7 +354,7 @@ static int init_filters()
 		struct filter_map_entry filter_entry = {};
 		filter_entry.arg_num = g_state.filters[i].entry.arg_num;
 		filter_entry.num_prefixes = g_state.filters[i].entry.num_prefixes;
-		memcpy(&filter_entry.prefixes, &g_state.filters[i].entry.prefixes, sizeof(u_int8_t) * 32 * 32);
+		memcpy(&filter_entry.prefixes, &g_state.filters[i].entry.prefixes, sizeof(u_int8_t) * 12 * 32);
 		if (bpf_map_update_elem(filter_maps_fd, &g_state.filters[i].syscall, &filter_entry, BPF_ANY) != 0) 
 		{
 			pman_print_error("failed to insert into filters map");
