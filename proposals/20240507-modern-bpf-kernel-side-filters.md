@@ -1,20 +1,20 @@
 # Adding Kernel-side filtering to the Modern BPF driver
 ## Summary
 
-For deployments of Falco on larger instances, we need to be able to cut down on the number of noisy events coming from the driver as the rules engine being single-threaded becomes a bottleneck.
+For deployments of Falco on larger instances, we need to be able to cut down on the number of noisy events coming from the modern-bpf driver source as the rules engine being single-threaded has become a bottleneck.
 
-There exists the feature to toggle individual syscalls, but more granularity here would allow for more capable deployments monitoring all relevent syscalls that can also filter out sources of concentrated noise.
+There exists the feature to toggle individual syscalls, but more granularity here would allow for more control - still monitoring all relevent syscalls while filtering out sources of concentrated noise.
 
 ## Motivation
 
-There are users of Falco deploying to hosts with 128+ CPUs where syscall throughput is too high for the system to sustain consistently. These hosts are especially susceptable to a bursty workload capable of causing a large percentage of events to be dropped.
+There are users of Falco deploying to hosts with 128+ CPUs where syscall throughput is too high for the system to keep up. These hosts are especially susceptable to bursty workloads capable of causing a large percentage of event drops.
 
 Here, being able to filter out the noisy/bursty workloads individually is preferable to disabling the collection of entire syscalls.
 
 ## Goals
 
 - Define a flexible config schema for these filters
-- Implement the filters to be as performant as possible without introducing means of circumventing detection
+- Implement the filters to be as performant as possible without introducing new means of circumventing detection
 
 ## Non-Goals
 
@@ -88,18 +88,18 @@ min             0.000000
 max            76.692583
 ```
 
-To summarize, it looks like we get drastically better worst-case performance at the cost of slightly worst 90-99th performance. 
+To summarize, it looks like we get drastically better worst-case performance at the cost of worse 90-99th performance. 
 
 This doesn't factor in other changes in Falco made between `0.36.2` and `0.37.0`, but it's likely not too significant looking at the changelog.
 
 ### Make necessary improvements
 
-To make this feature production ready, we should include more guardrails to improve the UX if used improperly. This includes being able to specify syscalls by name instead of by syscall number.
+To make this feature production ready, we should include more guardrails to improve the UX when the feature is misused. It would also be preferable to specify syscalls by name instead of by syscall number in the config.
 
-As for performance, it may be worth looking into how we can optimize this further. Putting fully qualified filenames into a map for a constant time check in the kernel hook would be preferable for performance, but a lot harder for users to maintain than supplying prefixes. 
+As for performance, it may be worth looking into how we can optimize this further. For example, fully qualified filenames into a map for a constant time check in the kernel hook would be preferable for performance, but a lot harder for users to maintain than supplying prefixes. 
 
 ### Next Steps
 
-1. Gather feeback on the current implementation in regard to how we can improve filtering performance while keeping usability.
+1. Gather feeback on the current implementation in regard to how we can improve filtering performance while maintaining usability.
 2. Improve the UX of this feature and add documentation for how to use it
 
