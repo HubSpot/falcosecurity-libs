@@ -3,11 +3,11 @@
 
 For deployments of Falco on larger instances, we need to be able to cut down on the number of noisy events coming from the modern-bpf driver source as the rules engine being single-threaded has become a bottleneck.
 
-There exists the feature to toggle individual syscalls, but more granularity here would allow for more control - still monitoring all relevent syscalls while filtering out sources of concentrated noise.
+There exists the feature to toggle individual syscalls, but more granularity here would allow for more control - still monitoring all relevant syscalls while filtering out sources of concentrated noise.
 
 ## Motivation
 
-There are users of Falco deploying to hosts with 128+ CPUs where syscall throughput is too high for the system to keep up. These hosts are especially susceptable to bursty workloads capable of causing a large percentage of event drops.
+There are users of Falco deploying to hosts with 128+ CPUs where syscall throughput is too high for the system to keep up. These hosts are especially susceptible to bursty workloads capable of causing a large percentage of event drops.
 
 Here, being able to filter out the noisy/bursty workloads individually is preferable to disabling the collection of entire syscalls.
 
@@ -34,14 +34,14 @@ filters:
 ```
 
 Each entry in the YAML list contains:
-- The syscall number for the target archetecture.
+- The syscall number for the target architecture.
 - The arg number for the syscall. This is expected to be a `char *`.
 - The prefixes to match and filter against inside the kernel hook.
 
 The diffs for this initial implementation can be found [here](https://github.com/falcosecurity/falco/compare/master...HubSpot:falco:master) for Falco and [here](https://github.com/falcosecurity/libs/compare/master...HubSpot:falcosecurity-libs:master) for falcosecurity-libs. 
 #### Performance
 
-We were able to deploy this patch on our infrastrucure and collect the following data. All of this is aggregated over a 4 day window.
+We were able to deploy this patch on our infrastructure and collect the following data. All of this is aggregated over a 4 day window.
 
 Event rate (`scap.evts_rate_sec`:
 ```
@@ -100,6 +100,6 @@ As for performance, it may be worth looking into how we can optimize this furthe
 
 ### Next Steps
 
-1. Gather feeback on the current implementation in regard to how we can improve filtering performance while maintaining usability.
+1. Gather feedback on the current implementation in regard to how we can improve filtering performance while maintaining usability.
 2. Improve the UX of this feature and add documentation for how to use it
 
