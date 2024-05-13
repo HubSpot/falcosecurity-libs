@@ -38,6 +38,7 @@ Each entry in the YAML list contains:
 - The arg number for the syscall. This is expected to be a `char *`.
 - The prefixes to match and filter against inside the kernel hook.
 
+The diffs for this initial implementation can be found [here](https://github.com/falcosecurity/falco/compare/master...HubSpot:falco:master) for Falco and [here](https://github.com/falcosecurity/libs/compare/master...HubSpot:falcosecurity-libs:master) for falcosecurity-libs. 
 #### Performance
 
 We were able to deploy this patch on our infrastrucure and collect the following data. All of this is aggregated over a 4 day window.
