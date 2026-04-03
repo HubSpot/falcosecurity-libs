@@ -15,7 +15,7 @@ limitations under the License.
 #pragma once
 
 #include <stdint.h>
-#include <shared_definitions/struct_definitions.h>
+#include <driver/modern_bpf/shared_definitions/struct_definitions.h>
 
 #define MODERN_BPF_ENGINE "modern_bpf"
 #define DEFAULT_CPU_FOR_EACH_BUFFER 1
