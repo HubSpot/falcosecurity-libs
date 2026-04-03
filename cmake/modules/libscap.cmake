@@ -57,7 +57,7 @@ if(NOT HAVE_LIBSCAP)
 	endif()
 
 	get_filename_component(LIBSCAP_INCLUDE_DIR ${LIBS_DIR}/userspace/libscap ABSOLUTE)
-	set(LIBSCAP_INCLUDE_DIRS ${LIBSCAP_INCLUDE_DIR} ${PROJECT_BINARY_DIR} ${DRIVER_CONFIG_DIR})
+	set(LIBSCAP_INCLUDE_DIRS ${LIBSCAP_INCLUDE_DIR} ${PROJECT_BINARY_DIR} ${DRIVER_CONFIG_DIR} ${LIBS_DIR}/driver/modern_bpf/)
 
 	function(set_scap_target_properties target)
 		set_target_properties(

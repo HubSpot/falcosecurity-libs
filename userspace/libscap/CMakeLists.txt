@@ -85,7 +85,7 @@ add_dependencies(scap_platform_util uthash)
 target_include_directories(
 	scap_platform_util
 	PUBLIC $<BUILD_INTERFACE:${LIBS_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/userspace>
-		   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+		   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/driver/modern_bpf>
 )
 
 target_link_libraries(scap PRIVATE scap_error "${ZLIB_LIB}")
@@ -111,7 +111,7 @@ add_dependencies(scap_event_schema uthash)
 target_include_directories(
 	scap_event_schema
 	PUBLIC $<BUILD_INTERFACE:${LIBS_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/userspace>
-		   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+		   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/driver/modern_bpf>
 )
 
 target_link_libraries(scap PUBLIC scap_event_schema)
@@ -135,7 +135,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 	target_include_directories(
 		scap_engine_util
 		PUBLIC $<BUILD_INTERFACE:${LIBS_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/userspace>
-			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> $<BUILD_INTERFACE:${LIBS_DIR}/driver/modern_bpf>
 	)
 	target_link_libraries(scap PRIVATE scap_engine_util)
 elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")

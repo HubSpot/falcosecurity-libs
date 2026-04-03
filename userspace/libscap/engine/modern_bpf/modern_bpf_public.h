@@ -15,6 +15,7 @@ limitations under the License.
 #pragma once
 
 #include <stdint.h>
+#include <shared_definitions/struct_definitions.h>
 
 #define MODERN_BPF_ENGINE "modern_bpf"
 #define DEFAULT_CPU_FOR_EACH_BUFFER 1
@@ -37,6 +38,7 @@ struct scap_modern_bpf_engine_params {
 	                           ///< allocated changes according to the `cpus_for_each_buffer` param.
 	                           ///< Please note: this buffer will be mapped twice both kernel and
 	                           ///< userspace-side, so pay attention to its size.
+	struct filter_config filter[16];
 };
 
 #ifdef __cplusplus

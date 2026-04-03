@@ -165,7 +165,8 @@ public:
 	        unsigned long driver_buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM,
 	        uint16_t cpus_for_each_buffer = DEFAULT_CPU_FOR_EACH_BUFFER,
 	        bool online_only = true,
-	        const libsinsp::events::set<ppm_sc_code>& ppm_sc_of_interest = {});
+	        const libsinsp::events::set<ppm_sc_code>& ppm_sc_of_interest = {},
+	        struct filter_config filter_conf[16] = {});
 	virtual void open_test_input(scap_test_input_data* data, sinsp_mode_t mode = SINSP_MODE_TEST);
 
 	void fseek(uint64_t filepos) { scap_fseek(m_h, filepos); }
