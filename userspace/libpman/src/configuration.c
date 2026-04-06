@@ -186,7 +186,11 @@ int pman_init_state(falcosecurity_log_fn log_fn,
 	/* These will be used during the ring buffer consumption phase. */
 	g_state.last_ring_read = -1;
 	g_state.last_event_size = 0;
-	memcpy(&g_state.filters[0], &filters[0], sizeof(struct filter_config) * 16);
+	if(filters) {
+		memcpy(&g_state.filters[0], &filters[0], sizeof(struct filter_config) * 16);
+	} else {
+		memset(&g_state.filters[0], 0, sizeof(struct filter_config) * 16);
+	}
 	return 0;
 }
 

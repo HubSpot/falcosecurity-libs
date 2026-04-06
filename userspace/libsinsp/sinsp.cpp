@@ -783,7 +783,11 @@ void sinsp::open_modern_bpf(unsigned long driver_buffer_bytes_dim,
 	params.buffer_bytes_dim = driver_buffer_bytes_dim;
 	params.cpus_for_each_buffer = cpus_for_each_buffer;
 	params.allocate_online_only = online_only;
-	memcpy(&params.filter[0], &filter_conf[0], sizeof(struct filter_config) * 16);
+	if(filter_conf) {
+		memcpy(&params.filter[0], &filter_conf[0], sizeof(struct filter_config) * 16);
+	} else {
+		memset(&params.filter[0], 0, sizeof(struct filter_config) * 16);
+	}
 	oargs.engine_params = &params;
 
 	scap_platform* platform = scap_linux_alloc_platform({::on_proc_table_refresh_start,
