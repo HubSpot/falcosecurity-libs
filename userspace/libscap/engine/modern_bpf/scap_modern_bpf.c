@@ -264,15 +264,19 @@ int32_t scap_modern_bpf__init(scap_t* handle, scap_open_args* oargs) {
 
 	/* Load and attach */
 	ret = pman_open_probe();
-	ret = ret ?: pman_prepare_ringbuf_array_before_loading();
-	ret = ret ?: pman_prepare_maps_before_loading();
-	ret = ret ?: pman_prepare_progs_before_loading();
-	ret = ret ?: pman_load_probe();
-	ret = ret ?: pman_finalize_maps_after_loading();
-	ret = ret ?: pman_finalize_ringbuf_array_after_loading();
-	if(ret != SCAP_SUCCESS) {
-		return ret;
-	}
+	if(ret != 0) { pman_print_error("failed at pman_open_probe"); return ret; }
+	ret = pman_prepare_ringbuf_array_before_loading();
+	if(ret != 0) { pman_print_error("failed at pman_prepare_ringbuf_array_before_loading"); return ret; }
+	ret = pman_prepare_maps_before_loading();
+	if(ret != 0) { pman_print_error("failed at pman_prepare_maps_before_loading"); return ret; }
+	ret = pman_prepare_progs_before_loading();
+	if(ret != 0) { pman_print_error("failed at pman_prepare_progs_before_loading"); return ret; }
+	ret = pman_load_probe();
+	if(ret != 0) { pman_print_error("failed at pman_load_probe"); return ret; }
+	ret = pman_finalize_maps_after_loading();
+	if(ret != 0) { pman_print_error("failed at pman_finalize_maps_after_loading"); return ret; }
+	ret = pman_finalize_ringbuf_array_after_loading();
+	if(ret != 0) { pman_print_error("failed at pman_finalize_ringbuf_array_after_loading"); return ret; }
 
 	/* Set the boot time */
 	uint64_t boot_time = 0;
