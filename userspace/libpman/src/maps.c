@@ -400,6 +400,21 @@ static int size_counter_maps() {
 
 static int init_filters()
 {
+	/* Skip filter initialization if no filters are configured */
+	bool has_filters = false;
+	for (int i = 0; i < 16; i++)
+	{
+		if (g_state.filters[i].syscall != 0 || g_state.filters[i].entry.num_prefixes != 0)
+		{
+			has_filters = true;
+			break;
+		}
+	}
+	if (!has_filters)
+	{
+		return 0;
+	}
+
 	int filter_maps_fd = 0;
 
 	filter_maps_fd = bpf_map__fd(g_state.skel->maps.filter_maps);
