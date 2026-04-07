@@ -17,6 +17,7 @@ limitations under the License.
 */
 
 #include "state.h"
+#include <stdio.h>
 #include <driver/feature_gates.h>
 #include "events_prog_table.h"
 
@@ -210,8 +211,13 @@ static void pman_save_attached_progs() {
 
 int pman_load_probe() {
 	if(bpf_probe__load(g_state.skel)) {
+		int saved_errno = errno;
 		pman_print_error("failed to load BPF object");
-		return errno;
+		fprintf(stderr, "hs-falco: bpf_probe__load failed errno=%d\n", saved_errno);
+		if(g_state.log_buf && g_state.log_buf_size > 0 && g_state.log_buf[0] != '\0') {
+			fprintf(stderr, "hs-falco: verifier log (first 4096 chars):\n%.4096s\n", g_state.log_buf);
+		}
+		return saved_errno;
 	}
 	pman_save_attached_progs();
 	// Programs are loaded so we passed the verifier we can free the 16 MB

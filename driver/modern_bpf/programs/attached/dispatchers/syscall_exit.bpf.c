@@ -104,9 +104,49 @@ enum custom_sys_exit_logic_codes {
 	T_HOTPLUG,
 	T_DROP_E,
 	T_DROP_X,
+	T_FILTER,
 	// add more codes here.
 	T_CUSTOM_MAX,
 };
+
+SEC("tp_btf/sys_exit")
+int BPF_PROG(t_filter, struct pt_regs *regs, long ret) {
+	uint32_t syscall_id = extract__syscall_id(regs);
+
+	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
+	if(filter != NULL) {
+		const void *syscall_arg_ptr = (const void *)extract__syscall_argument(regs, filter->arg_num);
+		int num_filter_limit;
+		if(filter->num_prefixes > 12) {
+			num_filter_limit = 12;
+		} else {
+			num_filter_limit = filter->num_prefixes;
+		}
+		char syscall_arg_prefix[32] = {0};
+		bpf_probe_read_user_str(syscall_arg_prefix, 32, syscall_arg_ptr);
+		for(int filter_idx = 0; filter_idx < num_filter_limit; filter_idx++) {
+			int match = 1;
+			if(filter->prefixes[filter_idx][0] == '\0') {
+				break;
+			}
+			for(int i = 0; i < 32; i++) {
+				if(syscall_arg_prefix[i] == '\0' || filter->prefixes[filter_idx][i] == '\0') {
+					break;
+				}
+				if(filter->prefixes[filter_idx][i] != syscall_arg_prefix[i]) {
+					match = 0;
+					break;
+				}
+			}
+			if(match == 1) {
+				return 0;
+			}
+		}
+	}
+
+	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
+	return 0;
+}
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -119,6 +159,7 @@ struct {
                         [T_HOTPLUG] = (void *)&t_hotplug,
                         [T_DROP_E] = (void *)&t_drop_e,
                         [T_DROP_X] = (void *)&t_drop_x,
+                        [T_FILTER] = (void *)&t_filter,
                 },
 };
 
@@ -239,46 +280,7 @@ int BPF_PROG(sys_exit, struct pt_regs *regs, long ret) {
 		return 0;
 	}
 
-	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
-	if (filter != NULL) {
-		const void *syscall_arg_ptr = (const void *) extract__syscall_argument(regs, filter->arg_num);
-		int num_filter_limit;
-		if (filter->num_prefixes > 12) { // 12 seems to be the limit for ARM with the current implementation
-			num_filter_limit = 12;
-		} else {
-			num_filter_limit = filter->num_prefixes;
-		}
-		char syscall_arg_prefix[32] = {0};
-		bpf_probe_read_user_str(syscall_arg_prefix, 32, syscall_arg_ptr);
-		for (int filter_idx = 0; filter_idx < num_filter_limit; filter_idx++)
-		{
-			int match = 1;
-			if (filter->prefixes[filter_idx][0] == '\0') // filter prefix is null, this means we've hit the end of the list
-			{
-				break;
-			}
-			for (int i = 0; i < 32; i++)
-			{
-				if (syscall_arg_prefix[i] == '\0' || filter->prefixes[filter_idx][i] == '\0')
-				{
-					break;
-				}
-				if (filter->prefixes[filter_idx][i] != syscall_arg_prefix[i])
-				{
-					match = 0;
-					break;
-				}
-			}
-			if (match == 1)
-			{
-				bpf_printk("filtering out %s", syscall_arg_ptr);
-				return 0;
-			}
-		}
-		bpf_printk("sending %s", syscall_arg_ptr);
-	}
-
-	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
+	bpf_tail_call(ctx, &custom_sys_exit_calls, T_FILTER);
 
 	return 0;
 }
