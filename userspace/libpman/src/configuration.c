@@ -17,6 +17,7 @@ limitations under the License.
 */
 
 #include "state.h"
+#include <stdio.h>
 #include <sys/resource.h>
 #include <linux/limits.h>
 #include <sys/utsname.h>
@@ -24,6 +25,15 @@ limitations under the License.
 #include <unistd.h>
 
 static int libbpf_print(enum libbpf_print_level level, const char *format, va_list args) {
+	// hs-falco: always print libbpf warnings to stderr for debugging
+	if(level <= LIBBPF_WARN) {
+		va_list args_copy;
+		va_copy(args_copy, args);
+		fprintf(stderr, "hs-falco-libbpf: ");
+		vfprintf(stderr, format, args_copy);
+		va_end(args_copy);
+	}
+
 	enum falcosecurity_log_severity sev;
 	switch(level) {
 	case LIBBPF_WARN:
