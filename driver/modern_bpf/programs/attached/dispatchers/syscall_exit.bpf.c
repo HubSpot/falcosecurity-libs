@@ -271,7 +271,10 @@ int BPF_PROG(sys_exit, struct pt_regs *regs, long ret) {
 		return 0;
 	}
 
-	if(maps__get_drop_failed() && ret < 0) {
+	/* Use a direct lookup instead of maps__get_drop_failed() to avoid
+	 * the compiler eliding the null check after inlining. */
+	struct capture_settings *drop_settings = maps__get_capture_settings();
+	if(drop_settings && drop_settings->drop_failed && ret < 0) {
 		return 0;
 	}
 
