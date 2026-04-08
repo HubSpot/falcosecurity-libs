@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <libsinsp/plugin_filtercheck.h>
 #include <libsinsp/plugin_manager.h>
+#include <driver/ppm_events_public.h>
 
 using namespace std;
 sinsp_filter_check_plugin::sinsp_filter_check_plugin() {
@@ -125,6 +126,25 @@ std::unique_ptr<sinsp_filter_check> sinsp_filter_check_plugin::allocate_new() {
 	return std::make_unique<sinsp_filter_check_plugin>(*this);
 }
 
+bool sinsp_filter_check_plugin::is_process_lifecycle_event(uint16_t evt_type) {
+	switch(evt_type) {
+	case PPME_SYSCALL_CLONE_20_X:
+	case PPME_SYSCALL_FORK_20_X:
+	case PPME_SYSCALL_VFORK_20_X:
+	case PPME_SYSCALL_CLONE3_X:
+	case PPME_SYSCALL_EXECVE_16_X:
+	case PPME_SYSCALL_EXECVE_17_X:
+	case PPME_SYSCALL_EXECVE_18_X:
+	case PPME_SYSCALL_EXECVE_19_X:
+	case PPME_SYSCALL_EXECVEAT_X:
+	case PPME_SYSCALL_CHROOT_X:
+	case PPME_PROCEXIT_1_E:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
                                                 std::vector<extract_value_t>& values,
                                                 std::vector<extract_offset_t>* offsets,
@@ -155,8 +175,54 @@ bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
 		return false;
 	}
 
-	// note: use non-transformed type, we'll apply transformations later on
 	auto type = sinsp_filter_check::get_field_info()->m_type;
+	auto evt_type = evt->get_type();
+	auto tid = evt->get_tid();
+	auto evtnum = evt->get_num();
+
+	// HS-Falco optimization: per-tid cache for string fields (e.g. container.id).
+	// The container_id for a thread doesn't change between events, only on
+	// process lifecycle events. Cache the result and skip the plugin call.
+	if(type == PT_CHARBUF && !m_arg_present && tid > 0) {
+		// Invalidate cache entry on process lifecycle events
+		if(is_process_lifecycle_event(evt_type)) {
+			m_tid_cache.erase(tid);
+		} else {
+			auto it = m_tid_cache.find(tid);
+			if(it != m_tid_cache.end()) {
+				auto& entry = it->second;
+				// Check TTL
+				if(evtnum - entry.created_evtnum < TID_CACHE_TTL_EVENTS) {
+					// Option C: for host processes, return "host" without
+					// calling the plugin at all
+					if(entry.is_host && m_field_id == 0) {
+						// field_id 0 is container.id
+						values.clear();
+						extract_value_t res;
+						res.len = entry.str_value.size();
+						res.ptr = (uint8_t*)entry.str_value.c_str();
+						values.push_back(res);
+						return true;
+					}
+					// Option A: return cached value for container processes
+					if(!entry.is_host) {
+						values.clear();
+						extract_value_t res;
+						res.len = entry.str_value.size();
+						res.ptr = (uint8_t*)entry.str_value.c_str();
+						values.push_back(res);
+						return true;
+					}
+				} else {
+					// TTL expired, remove stale entry
+					m_tid_cache.erase(it);
+				}
+			}
+		}
+	}
+
+	// note: use non-transformed type, we'll apply transformations later on
+	// (type already set above)
 
 	// here we want to extract just one field
 	uint32_t num_fields = 1;
@@ -218,6 +284,19 @@ bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
 		if(offsets && eoffset.start && eoffset.length) {
 			offsets->emplace_back(extract_offset_t{eoffset.start[i], eoffset.length[i]});
 		}
+	}
+
+	// HS-Falco: populate the tid cache after a successful extract of a string field
+	if(type == PT_CHARBUF && !m_arg_present && tid > 0 &&
+	   !is_process_lifecycle_event(evt_type) &&
+	   efield.res_len == 1 && efield.res.str[0] != nullptr) {
+		// Evict all entries if cache grows too large (missed lifecycle events)
+		if(m_tid_cache.size() >= TID_CACHE_MAX_SIZE) {
+			m_tid_cache.clear();
+		}
+		std::string val(efield.res.str[0]);
+		bool is_host = (val == "host" || val.empty());
+		m_tid_cache[tid] = {std::move(val), is_host, evtnum};
 	}
 
 	return true;
