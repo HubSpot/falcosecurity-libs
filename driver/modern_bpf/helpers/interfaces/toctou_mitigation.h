@@ -15,8 +15,13 @@ static __always_inline bool toctou_mitigation__sampling_logic_enter(uint32_t sys
 	/* If dropping mode is not enabled we don't perform any sampling. Notice that:
 	 * - false: means don't drop the syscall
 	 * - true: means drop the syscall
+	 *
+	 * Use a single map lookup for capture_settings to prevent the compiler
+	 * from eliding null checks on subsequent lookups, which causes BPF
+	 * verifier failures with some clang versions (e.g. alma9 clang 19/20).
 	 */
-	if(!maps__get_dropping_mode()) {
+	struct capture_settings *settings = maps__get_capture_settings();
+	if(!settings || !settings->dropping_mode) {
 		return false;
 	}
 
@@ -31,7 +36,7 @@ static __always_inline bool toctou_mitigation__sampling_logic_enter(uint32_t sys
 	}
 
 	// If we are in the sampling period we drop the event.
-	if((bpf_ktime_get_boot_ns() % SECOND_TO_NS) >= (SECOND_TO_NS / maps__get_sampling_ratio())) {
+	if((bpf_ktime_get_boot_ns() % SECOND_TO_NS) >= (SECOND_TO_NS / settings->sampling_ratio)) {
 		return true;
 	}
 
