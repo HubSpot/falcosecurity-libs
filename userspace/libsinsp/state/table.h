@@ -478,14 +478,18 @@ public:
 		m_ephemeral_tables_clear = false;
 		m_ephemeral_tables_used++;
 		// HS-Falco: use the cached iterator to jump directly to the next
-		// unused slot in O(1) instead of scanning the whole list
+		// unused slot in O(1) instead of scanning the whole list.
+		// std::list iterators remain valid after emplace_back so we
+		// keep the iterator valid after appending a new entry.
 		if(m_ephemeral_tables_next_valid && m_ephemeral_tables_next != m_ephemeral_tables.end()) {
 			auto& ret = *m_ephemeral_tables_next;
 			++m_ephemeral_tables_next;
 			return ret;
 		}
-		m_ephemeral_tables_next_valid = false;
-		return m_ephemeral_tables.emplace_back();
+		auto& ret = m_ephemeral_tables.emplace_back();
+		m_ephemeral_tables_next = m_ephemeral_tables.end();
+		m_ephemeral_tables_next_valid = true;
+		return ret;
 	}
 
 	inline std::shared_ptr<libsinsp::state::table_entry>* store_accessed_entry(
