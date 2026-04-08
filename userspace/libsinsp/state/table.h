@@ -412,6 +412,14 @@ protected:
 	        m_created_entries;  // entries created but not yet added to a table
 	std::list<libsinsp::state::table_accessor>
 	        m_ephemeral_tables;  // note: lists have pointer stability
+	// Track the next unused slot and how many are in use to avoid
+	// O(n) scans of the full list on every plugin call. The list grows
+	// over time (via emplace_back during subtable accesses) but most
+	// plugin calls use 0-1 entries. Without tracking, clear() and find()
+	// iterate the entire list on every call.
+	std::list<libsinsp::state::table_accessor>::iterator m_ephemeral_tables_next;
+	bool m_ephemeral_tables_next_valid = false;
+	size_t m_ephemeral_tables_used = 0;
 	std::list<libsinsp::state::sinsp_field_accessor_wrapper>
 	        m_accessed_table_fields;  // note: lists have pointer stability
 
@@ -425,9 +433,15 @@ protected:
 			// whole list in the critical path, in case of no accessed table
 			return;
 		}
-		for(auto& et : m_ephemeral_tables) {
-			et.unset();
+		// Only unset entries that were actually used since the last clear,
+		// not the entire list which can have tens of thousands of entries.
+		size_t count = 0;
+		for(auto it = m_ephemeral_tables.begin(); it != m_ephemeral_tables.end() && count < m_ephemeral_tables_used; ++it, ++count) {
+			it->unset();
 		}
+		m_ephemeral_tables_used = 0;
+		m_ephemeral_tables_next = m_ephemeral_tables.begin();
+		m_ephemeral_tables_next_valid = true;
 		m_ephemeral_tables_clear = true;
 	}
 
@@ -468,12 +482,19 @@ protected:
 public:
 	inline libsinsp::state::table_accessor& find_unset_ephemeral_table() {
 		m_ephemeral_tables_clear = false;
-		for(auto& et : m_ephemeral_tables) {
-			if(!et.is_set()) {
-				return et;
-			}
+		m_ephemeral_tables_used++;
+		// Use the cached iterator to jump directly to the next unused
+		// slot in O(1) instead of scanning from the beginning of the list.
+		// std::list iterators remain valid after emplace_back.
+		if(m_ephemeral_tables_next_valid && m_ephemeral_tables_next != m_ephemeral_tables.end()) {
+			auto& ret = *m_ephemeral_tables_next;
+			++m_ephemeral_tables_next;
+			return ret;
 		}
-		return m_ephemeral_tables.emplace_back();
+		auto& ret = m_ephemeral_tables.emplace_back();
+		m_ephemeral_tables_next = m_ephemeral_tables.end();
+		m_ephemeral_tables_next_valid = true;
+		return ret;
 	}
 
 	inline std::shared_ptr<libsinsp::state::table_entry>* store_accessed_entry(
