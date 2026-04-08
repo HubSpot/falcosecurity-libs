@@ -149,6 +149,11 @@ bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
                                                 std::vector<extract_value_t>& values,
                                                 std::vector<extract_offset_t>* offsets,
                                                 bool sanitize_strings) {
+	// HS-Falco: tid cache counters
+	static uint64_t s_tid_cache_hits = 0;
+	static uint64_t s_tid_cache_misses = 0;
+	static uint64_t s_tid_cache_log_interval = 0;
+
 	// reject the event if it comes from an unknown event source
 	if(evt->get_source_idx() == sinsp_no_event_source_idx) {
 		return false;
@@ -193,26 +198,34 @@ bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
 				auto& entry = it->second;
 				// Check TTL
 				if(evtnum - entry.created_evtnum < TID_CACHE_TTL_EVENTS) {
-					// Option C: for host processes, return "host" without
-					// calling the plugin at all
-					if(entry.is_host && m_field_id == 0) {
-						// field_id 0 is container.id
-						values.clear();
-						extract_value_t res;
-						res.len = entry.str_value.size();
-						res.ptr = (uint8_t*)entry.str_value.c_str();
-						values.push_back(res);
-						return true;
+					s_tid_cache_hits++;
+					if(++s_tid_cache_log_interval % 1000000 == 0) {
+						fprintf(stderr, "hs-falco-perf: tid_cache hits=%lu misses=%lu "
+							"size=%zu field_id=%u is_host=%d\n",
+							s_tid_cache_hits, s_tid_cache_misses,
+							m_tid_cache.size(), m_field_id, entry.is_host);
+					}
+					// Option C: for host processes, return cached value
+					// for container.id, skip entirely for other fields
+					if(entry.is_host) {
+						if(m_field_id == 0) {
+							values.clear();
+							extract_value_t res;
+							res.len = entry.str_value.size();
+							res.ptr = (uint8_t*)entry.str_value.c_str();
+							values.push_back(res);
+						}
+						// For non-container.id fields on host, return empty
+						// (no container metadata to extract)
+						return m_field_id == 0;
 					}
 					// Option A: return cached value for container processes
-					if(!entry.is_host) {
-						values.clear();
-						extract_value_t res;
-						res.len = entry.str_value.size();
-						res.ptr = (uint8_t*)entry.str_value.c_str();
-						values.push_back(res);
-						return true;
-					}
+					values.clear();
+					extract_value_t res;
+					res.len = entry.str_value.size();
+					res.ptr = (uint8_t*)entry.str_value.c_str();
+					values.push_back(res);
+					return true;
 				} else {
 					// TTL expired, remove stale entry
 					m_tid_cache.erase(it);
@@ -220,6 +233,8 @@ bool sinsp_filter_check_plugin::extract_nocache(sinsp_evt* evt,
 			}
 		}
 	}
+
+	s_tid_cache_misses++;
 
 	// note: use non-transformed type, we'll apply transformations later on
 	// (type already set above)
