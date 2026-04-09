@@ -254,8 +254,7 @@ int32_t scap_modern_bpf__init(scap_t* handle, scap_open_args* oargs) {
 	if(pman_init_state(oargs->log_fn,
 	                   params->buffer_bytes_dim,
 	                   params->cpus_for_each_buffer,
-	                   params->allocate_online_only,
-	                   params->filter)) {
+	                   params->allocate_online_only)) {
 		return scap_errprintf(handle->m_lasterr, 0, "unable to configure the libpman state.");
 	}
 
@@ -264,31 +263,25 @@ int32_t scap_modern_bpf__init(scap_t* handle, scap_open_args* oargs) {
 
 	/* Load and attach */
 	ret = pman_open_probe();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_open_probe ret=%d\n", ret); return ret; }
-	ret = pman_prepare_ringbuf_array_before_loading();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_prepare_ringbuf_array_before_loading ret=%d\n", ret); return ret; }
-	ret = pman_prepare_maps_before_loading();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_prepare_maps_before_loading ret=%d\n", ret); return ret; }
-	ret = pman_prepare_progs_before_loading();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_prepare_progs_before_loading ret=%d\n", ret); return ret; }
-	ret = pman_load_probe();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_load_probe ret=%d\n", ret); return ret; }
-	ret = pman_finalize_maps_after_loading();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_finalize_maps_after_loading ret=%d\n", ret); return ret; }
-	ret = pman_finalize_ringbuf_array_after_loading();
-	if(ret != 0) { fprintf(stderr, "hs-falco: failed at pman_finalize_ringbuf_array_after_loading ret=%d\n", ret); return ret; }
+	ret = ret ?: pman_prepare_ringbuf_array_before_loading();
+	ret = ret ?: pman_prepare_maps_before_loading();
+	ret = ret ?: pman_prepare_progs_before_loading();
+	ret = ret ?: pman_load_probe();
+	ret = ret ?: pman_finalize_maps_after_loading();
+	ret = ret ?: pman_finalize_ringbuf_array_after_loading();
+	if(ret != SCAP_SUCCESS) {
+		return ret;
+	}
 
 	/* Set the boot time */
 	uint64_t boot_time = 0;
 	if(scap_get_precise_boot_time(handle->m_lasterr, &boot_time) != SCAP_SUCCESS) {
-		fprintf(stderr, "hs-falco: failed at scap_get_precise_boot_time\n");
 		return SCAP_FAILURE;
 	}
 	pman_set_boot_time(boot_time);
 
 	/* Calibrate the socket at init time */
 	if(calibrate_socket_file_ops(engine) != SCAP_SUCCESS) {
-		fprintf(stderr, "hs-falco: failed at calibrate_socket_file_ops\n");
 		return SCAP_FAILURE;
 	}
 

@@ -1097,18 +1097,6 @@ bool sinsp_plugin::extract_fields_and_offsets(sinsp_evt* evt,
 	auto res = m_handle->api.extract_fields(m_state, &ev, &in) == SS_PLUGIN_SUCCESS;
 
 	// do some defensive garbage collection
-	// HS-Falco: log ephemeral table sizes periodically for profiling
-	static uint64_t s_extract_count = 0;
-	if(++s_extract_count % 1000000 == 0) {
-		fprintf(stderr, "hs-falco-perf: extract_fields called %lu times, "
-			"ephemeral_tables=%zu, accessed_entries=%zu, created_entries=%zu, "
-			"accessed_table_fields=%zu\n",
-			s_extract_count,
-			m_ephemeral_tables.size(),
-			m_accessed_entries.size(),
-			m_created_entries.size(),
-			m_accessed_table_fields.size());
-	}
 	clear_ephemeral_tables();
 	clear_accessed_entries();
 	clear_created_entries();

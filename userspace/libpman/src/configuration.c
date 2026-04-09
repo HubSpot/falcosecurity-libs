@@ -17,7 +17,6 @@ limitations under the License.
 */
 
 #include "state.h"
-#include <stdio.h>
 #include <sys/resource.h>
 #include <linux/limits.h>
 #include <sys/utsname.h>
@@ -25,15 +24,6 @@ limitations under the License.
 #include <unistd.h>
 
 static int libbpf_print(enum libbpf_print_level level, const char *format, va_list args) {
-	// hs-falco: always print libbpf warnings to stderr for debugging
-	if(level <= LIBBPF_WARN) {
-		va_list args_copy;
-		va_copy(args_copy, args);
-		fprintf(stderr, "hs-falco-libbpf: ");
-		vfprintf(stderr, format, args_copy);
-		va_end(args_copy);
-	}
-
 	enum falcosecurity_log_severity sev;
 	switch(level) {
 	case LIBBPF_WARN:
@@ -105,8 +95,7 @@ void pman_clear_state() {
 int pman_init_state(falcosecurity_log_fn log_fn,
                     unsigned long buf_bytes_dim,
                     uint16_t cpus_for_each_buffer,
-                    bool allocate_online_only,
-                    struct filter_config filters[16]) {
+                    bool allocate_online_only) {
 	char error_message[MAX_ERROR_MESSAGE_LEN];
 
 	/* `LIBBPF_STRICT_ALL` turns on all supported strict features
@@ -196,11 +185,6 @@ int pman_init_state(falcosecurity_log_fn log_fn,
 	/* These will be used during the ring buffer consumption phase. */
 	g_state.last_ring_read = -1;
 	g_state.last_event_size = 0;
-	if(filters) {
-		memcpy(&g_state.filters[0], &filters[0], sizeof(struct filter_config) * 16);
-	} else {
-		memset(&g_state.filters[0], 0, sizeof(struct filter_config) * 16);
-	}
 	return 0;
 }
 
