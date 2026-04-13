@@ -104,9 +104,49 @@ enum custom_sys_exit_logic_codes {
 	T_HOTPLUG,
 	T_DROP_E,
 	T_DROP_X,
+	T_FILTER,
 	// add more codes here.
 	T_CUSTOM_MAX,
 };
+
+SEC("tp_btf/sys_exit")
+int BPF_PROG(t_filter, struct pt_regs *regs, long ret) {
+	uint32_t syscall_id = extract__syscall_id(regs);
+
+	struct filter_map_entry *filter = maps__get_filter_for_syscall_num(syscall_id);
+	if(filter != NULL) {
+		const void *syscall_arg_ptr = (const void *)extract__syscall_argument(regs, filter->arg_num);
+		int num_filter_limit;
+		if(filter->num_prefixes > 12) {
+			num_filter_limit = 12;
+		} else {
+			num_filter_limit = filter->num_prefixes;
+		}
+		char syscall_arg_prefix[32] = {0};
+		bpf_probe_read_user_str(syscall_arg_prefix, 32, syscall_arg_ptr);
+		for(int filter_idx = 0; filter_idx < num_filter_limit; filter_idx++) {
+			int match = 1;
+			if(filter->prefixes[filter_idx][0] == '\0') {
+				break;
+			}
+			for(int i = 0; i < 32; i++) {
+				if(syscall_arg_prefix[i] == '\0' || filter->prefixes[filter_idx][i] == '\0') {
+					break;
+				}
+				if(filter->prefixes[filter_idx][i] != syscall_arg_prefix[i]) {
+					match = 0;
+					break;
+				}
+			}
+			if(match == 1) {
+				return 0;
+			}
+		}
+	}
+
+	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
+	return 0;
+}
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -119,6 +159,7 @@ struct {
                         [T_HOTPLUG] = (void *)&t_hotplug,
                         [T_DROP_E] = (void *)&t_drop_e,
                         [T_DROP_X] = (void *)&t_drop_x,
+                        [T_FILTER] = (void *)&t_filter,
                 },
 };
 
@@ -126,8 +167,13 @@ static __always_inline bool sampling_logic_exit(void *ctx, uint32_t id) {
 	/* If dropping mode is not enabled we don't perform any sampling
 	 * false: means don't drop the syscall
 	 * true: means drop the syscall
+	 *
+	 * Use a single map lookup for capture_settings to avoid the compiler
+	 * eliding null checks on subsequent lookups, which causes BPF verifier
+	 * failures with some clang versions.
 	 */
-	if(!maps__get_dropping_mode()) {
+	struct capture_settings *settings = maps__get_capture_settings();
+	if(!settings || !settings->dropping_mode) {
 		return false;
 	}
 
@@ -141,25 +187,25 @@ static __always_inline bool sampling_logic_exit(void *ctx, uint32_t id) {
 		return true;
 	}
 
-	if((bpf_ktime_get_boot_ns() % SECOND_TO_NS) >= (SECOND_TO_NS / maps__get_sampling_ratio())) {
+	if((bpf_ktime_get_boot_ns() % SECOND_TO_NS) >= (SECOND_TO_NS / settings->sampling_ratio)) {
 		/* If we are starting the dropping phase we need to notify the userspace, otherwise, we
 		 * simply drop our event.
 		 * PLEASE NOTE: this logic is not per-CPU so it is best effort!
 		 */
-		if(!maps__get_is_dropping()) {
+		if(!is_dropping) {
 			/* Here we are not sure we can send the drop_e event to userspace
 			 * if the buffer is full, but this is not essential even if we lose
 			 * an iteration we will synchronize again the next time the logic is enabled.
 			 */
-			maps__set_is_dropping(true);
+			is_dropping = true;
 			bpf_tail_call(ctx, &custom_sys_exit_calls, T_DROP_E);
 			bpf_printk("unable to tail call into 'drop_e' prog");
 		}
 		return true;
 	}
 
-	if(maps__get_is_dropping()) {
-		maps__set_is_dropping(false);
+	if(is_dropping) {
+		is_dropping = false;
 		bpf_tail_call(ctx, &custom_sys_exit_calls, T_DROP_X);
 		bpf_printk("unable to tail call into 'drop_x' prog");
 	}
@@ -225,7 +271,10 @@ int BPF_PROG(sys_exit, struct pt_regs *regs, long ret) {
 		return 0;
 	}
 
-	if(maps__get_drop_failed() && ret < 0) {
+	/* Use a direct lookup instead of maps__get_drop_failed() to avoid
+	 * the compiler eliding the null check after inlining. */
+	struct capture_settings *drop_settings = maps__get_capture_settings();
+	if(drop_settings && drop_settings->drop_failed && ret < 0) {
 		return 0;
 	}
 
@@ -239,7 +288,7 @@ int BPF_PROG(sys_exit, struct pt_regs *regs, long ret) {
 		return 0;
 	}
 
-	bpf_tail_call(ctx, &syscall_exit_tail_table, syscall_id);
+	bpf_tail_call(ctx, &custom_sys_exit_calls, T_FILTER);
 
 	return 0;
 }
