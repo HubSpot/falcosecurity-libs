@@ -21,6 +21,7 @@ limitations under the License.
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <libsinsp/sinsp_int.h>
 #include <libsinsp/version.h>
 #include <libsinsp/filter.h>
@@ -72,4 +73,20 @@ private:
 	// extract_arg_key() extracts a valid string from the argument. If we pass
 	// a numeric argument, it will be converted to string.
 	void extract_arg_key();
+
+	// Per-tid cache for plugin extract results. Avoids calling into the
+	// plugin for every event when the result doesn't change between events
+	// from the same thread (e.g. container.id). Invalidated on process
+	// lifecycle events. Entries expire after TID_CACHE_TTL_EVENTS to bound
+	// memory if lifecycle events are missed.
+	struct tid_cache_entry {
+		std::string str_value;
+		bool is_host;
+		uint64_t created_evtnum;
+	};
+	std::unordered_map<int64_t, tid_cache_entry> m_tid_cache;
+	static constexpr size_t TID_CACHE_MAX_SIZE = 65536;
+	static constexpr uint64_t TID_CACHE_TTL_EVENTS = 500000;
+
+	static bool is_process_lifecycle_event(uint16_t evt_type);
 };
