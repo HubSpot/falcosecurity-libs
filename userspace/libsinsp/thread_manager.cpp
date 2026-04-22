@@ -186,21 +186,34 @@ void sinsp_thread_manager::create_thread_dependencies(
 
 	/* Create the thread group info for the thread. */
 	auto tginfo = get_thread_group_info(tinfo->m_pid);
+	bool leader_changed = false;
 	if(tginfo == nullptr) {
 		tginfo = std::make_shared<thread_group_info>(tinfo->m_pid, reaper, tinfo);
 		set_thread_group_info(tinfo->m_pid, tginfo);
+		/* New group: tginfo holds only `tinfo`; no other threads to refresh. */
 	} else {
-		tginfo->add_thread_to_group(tinfo, tinfo->is_main_thread());
+		const bool is_main = tinfo->is_main_thread();
+		tginfo->add_thread_to_group(tinfo, is_main);
+		/* add_thread_to_group uses push_front for main, push_back for non-main.
+		 * get_first_thread()/get_main_thread() only changes when a main thread is
+		 * inserted, so the cached m_main_fdtable on existing threads is stale only
+		 * in that case. For non-main adds we only need to initialize the new thread.
+		 */
+		leader_changed = is_main;
 	}
 	tinfo->m_tginfo = tginfo;
 
-	// update fdtable cached pointer for all threads in the group (which includes
-	// the current thread), as their leader might have changed or we simply need
-	// to first initialize it. Then we do the same with the thread's children.
-	for(const auto& thread : tginfo->get_thread_list()) {
-		if(auto thread_ptr = thread.lock().get(); thread_ptr != nullptr) {
-			thread_ptr->update_main_fdtable();
+	// update fdtable cached pointer for threads in the group. On leader change we
+	// must refresh every thread in the group; otherwise only the newly-added thread
+	// needs its pointer initialized. Then we do the same with the thread's children.
+	if(leader_changed) {
+		for(const auto& thread : tginfo->get_thread_list()) {
+			if(auto thread_ptr = thread.lock().get(); thread_ptr != nullptr) {
+				thread_ptr->update_main_fdtable();
+			}
 		}
+	} else {
+		tinfo->update_main_fdtable();
 	}
 	for(const auto& thread : tinfo->m_children) {
 		if(auto thread_ptr = thread.lock().get(); thread_ptr != nullptr) {
