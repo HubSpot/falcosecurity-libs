@@ -727,3 +727,129 @@ TEST(thread_manager, env_vars_access) {
 	EXPECT_EQ(subtable->entries_count(), 0);
 	EXPECT_EQ(tinfo->m_env.size(), 0);
 }
+
+namespace {
+
+// Tests for the amortized-O(1) ephemeral table tracking in sinsp_table_owner.
+// The optimization swaps an O(N) walk of every slot for a walk bounded by the
+// number of slots actually handed out in the current iteration. The harness
+// exposes just enough of sinsp_table_owner's protected surface to exercise
+// that invariant without going through the plugin path.
+class ephemeral_tables_harness : public libsinsp::state::sinsp_table_owner {
+public:
+	using libsinsp::state::sinsp_table_owner::clear_ephemeral_tables;
+	size_t tables_size() const { return m_ephemeral_tables.size(); }
+};
+
+// A non-null sentinel we can stash in table_accessor::m_table to make
+// is_set() return true without going through the templated set<> path.
+libsinsp::state::base_table* const kDummyTable =
+        reinterpret_cast<libsinsp::state::base_table*>(static_cast<uintptr_t>(0x1));
+
+}  // namespace
+
+TEST(sinsp_table_owner, find_unset_ephemeral_table_grows_and_reuses) {
+	ephemeral_tables_harness owner;
+	ASSERT_EQ(owner.tables_size(), 0u);
+
+	auto& a1 = owner.find_unset_ephemeral_table();
+	a1.m_table = kDummyTable;
+	auto& a2 = owner.find_unset_ephemeral_table();
+	a2.m_table = kDummyTable;
+	ASSERT_EQ(owner.tables_size(), 2u);
+	ASSERT_NE(&a1, &a2);
+	ASSERT_TRUE(a1.is_set());
+	ASSERT_TRUE(a2.is_set());
+
+	owner.clear_ephemeral_tables();
+	EXPECT_FALSE(a1.is_set());
+	EXPECT_FALSE(a2.is_set());
+	// The list is not shrunk: its capacity is reused on subsequent cycles.
+	EXPECT_EQ(owner.tables_size(), 2u);
+
+	// Reacquiring reuses the exact same storage (list iterators are stable).
+	auto& r1 = owner.find_unset_ephemeral_table();
+	auto& r2 = owner.find_unset_ephemeral_table();
+	EXPECT_EQ(&r1, &a1);
+	EXPECT_EQ(&r2, &a2);
+}
+
+TEST(sinsp_table_owner, clear_ephemeral_tables_only_touches_used_slots) {
+	// This is the load-bearing property of the optimization: after a cycle that
+	// uses fewer slots than the list contains, clear_ephemeral_tables() must
+	// stop at the "used" boundary and leave the tail alone. If we saw the tail
+	// get touched we'd be back to the O(N) behavior we were trying to avoid.
+	ephemeral_tables_harness owner;
+	std::vector<libsinsp::state::table_accessor*> slots;
+	for(int i = 0; i < 5; ++i) {
+		auto& a = owner.find_unset_ephemeral_table();
+		a.m_table = kDummyTable;
+		slots.push_back(&a);
+	}
+	ASSERT_EQ(owner.tables_size(), 5u);
+
+	// Full cycle: every slot is unset.
+	owner.clear_ephemeral_tables();
+	for(auto* s : slots) {
+		ASSERT_FALSE(s->is_set());
+	}
+
+	// Partial cycle: only grab the first 2 slots.
+	(void)owner.find_unset_ephemeral_table();
+	(void)owner.find_unset_ephemeral_table();
+
+	// Poke the tail directly to simulate "still looks set". A previous
+	// implementation that walked the entire list would unset these.
+	slots[2]->m_table = kDummyTable;
+	slots[3]->m_table = kDummyTable;
+	slots[4]->m_table = kDummyTable;
+
+	owner.clear_ephemeral_tables();
+
+	// The first two were legitimately handed out this cycle, so they must
+	// be unset. The tail was never handed out and must be left untouched.
+	EXPECT_FALSE(slots[0]->is_set());
+	EXPECT_FALSE(slots[1]->is_set());
+	EXPECT_TRUE(slots[2]->is_set());
+	EXPECT_TRUE(slots[3]->is_set());
+	EXPECT_TRUE(slots[4]->is_set());
+}
+
+TEST(sinsp_table_owner, clear_ephemeral_tables_second_call_is_noop) {
+	ephemeral_tables_harness owner;
+	auto& a = owner.find_unset_ephemeral_table();
+	a.m_table = kDummyTable;
+
+	owner.clear_ephemeral_tables();
+	ASSERT_FALSE(a.is_set());
+
+	// A subsequent clear without any intervening find_unset_ephemeral_table
+	// must be a short-circuited no-op: a second call must not re-walk the list.
+	// We verify this by poking the slot back to "set" and confirming the second
+	// clear leaves it alone.
+	a.m_table = kDummyTable;
+	owner.clear_ephemeral_tables();
+	EXPECT_TRUE(a.is_set());
+}
+
+TEST(sinsp_table_owner, find_unset_ephemeral_table_arms_next_clear) {
+	// After a clear, the next find_unset_ephemeral_table re-arms the clear
+	// guard so that a subsequent clear walks again - but only over the
+	// freshly-used prefix.
+	ephemeral_tables_harness owner;
+	auto& a1 = owner.find_unset_ephemeral_table();
+	a1.m_table = kDummyTable;
+	auto& a2 = owner.find_unset_ephemeral_table();
+	a2.m_table = kDummyTable;
+	owner.clear_ephemeral_tables();
+
+	auto& r = owner.find_unset_ephemeral_table();
+	r.m_table = kDummyTable;
+	// Hand-poke the second slot to simulate a stale "set" state.
+	a2.m_table = kDummyTable;
+
+	owner.clear_ephemeral_tables();
+	EXPECT_FALSE(r.is_set());
+	// a2 was not handed out this cycle, so clear must not touch it.
+	EXPECT_TRUE(a2.is_set());
+}

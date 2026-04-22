@@ -179,6 +179,90 @@ TEST_F(sinsp_with_test_input, THRD_MANAGER_create_thread_dependencies_invalid_pa
 	ASSERT_EQ(tinfo->m_ptid, 0);
 }
 
+TEST(sinsp_thread_manager, create_thread_dependencies_caches_fdtable_on_non_main_add) {
+	// Non-main thread joining an existing group must get its cached
+	// m_main_fdtable pointed at the group leader's fdtable. With
+	// PPM_CL_CLONE_FILES set (as the kernel driver always does) get_fd_table()
+	// walks to the main thread, so the cache must resolve to the leader.
+	sinsp m_inspector;
+	scap_test_input_data data;
+	data.event_count = 0;
+	data.thread_count = 0;
+	m_inspector.open_test_input(&data, SINSP_MODE_TEST);
+
+	const auto& threadinfo_factory = m_inspector.get_threadinfo_factory();
+
+	const auto main_t = threadinfo_factory.create_shared();
+	main_t->m_tid = 9000;
+	main_t->m_pid = 9000;
+	main_t->m_ptid = 9999;  // no parent in table; create_thread_dependencies reparents to 0
+	main_t->m_flags = PPM_CL_CLONE_FILES;
+	m_inspector.m_thread_manager->create_thread_dependencies(main_t);
+	ASSERT_TRUE(main_t->m_tginfo);
+
+	const auto main_fdt = main_t->get_main_fdtable();
+	ASSERT_NE(main_fdt, nullptr);
+
+	const auto sub_t = threadinfo_factory.create_shared();
+	sub_t->m_tid = 9001;
+	sub_t->m_pid = 9000;
+	sub_t->m_ptid = 9999;
+	sub_t->m_flags = PPM_CL_CLONE_FILES;
+	m_inspector.m_thread_manager->create_thread_dependencies(sub_t);
+	ASSERT_EQ(sub_t->m_tginfo.get(), main_t->m_tginfo.get());
+	ASSERT_EQ(sub_t->m_tginfo->get_thread_count(), 2);
+
+	// Leader did not change, so the main thread's cache must be unaffected and
+	// the new thread's cache must resolve to the leader's fdtable.
+	EXPECT_EQ(main_t->get_main_fdtable(), main_fdt);
+	EXPECT_EQ(sub_t->get_main_fdtable(), main_fdt);
+}
+
+TEST(sinsp_thread_manager, create_thread_dependencies_refreshes_group_on_leader_change) {
+	// During a /proc scan the non-main thread can be observed before its group
+	// leader. When the leader finally arrives it is pushed to the front of the
+	// thread list; every existing thread's cached m_main_fdtable must be
+	// refreshed to point at the new leader, otherwise plugin reads of
+	// `file_descriptors` would see a stale (or null) fdtable.
+	sinsp m_inspector;
+	scap_test_input_data data;
+	data.event_count = 0;
+	data.thread_count = 0;
+	m_inspector.open_test_input(&data, SINSP_MODE_TEST);
+
+	const auto& threadinfo_factory = m_inspector.get_threadinfo_factory();
+
+	// Non-main thread observed first (no leader yet in the group).
+	const auto sub_t = threadinfo_factory.create_shared();
+	sub_t->m_tid = 8001;
+	sub_t->m_pid = 8000;
+	sub_t->m_ptid = 8999;
+	sub_t->m_flags = PPM_CL_CLONE_FILES;
+	m_inspector.m_thread_manager->create_thread_dependencies(sub_t);
+	ASSERT_TRUE(sub_t->m_tginfo);
+	ASSERT_EQ(sub_t->m_tginfo->get_thread_count(), 1);
+	// With CLONE_FILES set and no main thread in the group, get_fd_table()
+	// returns nullptr and the cached pointer must be nullptr.
+	EXPECT_EQ(sub_t->get_main_fdtable(), nullptr);
+
+	// The leader arrives: is_main_thread() is true so add_thread_to_group
+	// pushes it to the front - this is the leader-change branch.
+	const auto main_t = threadinfo_factory.create_shared();
+	main_t->m_tid = 8000;
+	main_t->m_pid = 8000;
+	main_t->m_ptid = 8999;
+	main_t->m_flags = PPM_CL_CLONE_FILES;
+	m_inspector.m_thread_manager->create_thread_dependencies(main_t);
+	ASSERT_EQ(main_t->m_tginfo.get(), sub_t->m_tginfo.get());
+	ASSERT_EQ(main_t->m_tginfo->get_thread_count(), 2);
+
+	const auto main_fdt = main_t->get_main_fdtable();
+	ASSERT_NE(main_fdt, nullptr);
+	// The previously-added thread's cached pointer must have been refreshed
+	// during the leader-change branch.
+	EXPECT_EQ(sub_t->get_main_fdtable(), main_fdt);
+}
+
 TEST(sinsp_thread_manager, THRD_MANAGER_find_new_reaper_nullptr) {
 	const sinsp m_inspector;
 	const auto& thread_manager_factory = m_inspector.get_thread_manager_factory();

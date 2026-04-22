@@ -501,6 +501,8 @@ public:
 		                 : static_cast<const libsinsp::state::base_table*>(fdtable->table_ptr());
 	}
 
+	inline const libsinsp::state::base_table* get_main_fdtable() const { return m_main_fdtable; }
+
 	void set_exepath(std::string&& exepath);
 
 	/*!
