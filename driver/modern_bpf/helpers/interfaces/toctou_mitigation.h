@@ -49,6 +49,11 @@ static __always_inline bool toctou_mitigation__sampling_logic_enter(uint32_t sys
  */
 static __always_inline int toctou_mitigation__64bit_should_drop(uint32_t syscall_id,
                                                                 int socketcall_call) {
+	/* HS_FALCO self-filter: don't emit enter events for the scap (falco) process. */
+	if(maps__current_is_scap()) {
+		return 1;
+	}
+
 #ifdef __NR_socketcall
 	uint32_t socketcall_syscall_id = __NR_socketcall;
 #else
@@ -97,6 +102,11 @@ static __always_inline int toctou_mitigation__ia32_should_drop(uint32_t syscall_
 #ifndef __TARGET_ARCH_x86
 	return 1;
 #else
+	/* HS_FALCO self-filter: don't emit enter events for the scap (falco) process. */
+	if(maps__current_is_scap()) {
+		return 1;
+	}
+
 	int socketcall_syscall_id = -1;
 	if(syscall_id == __NR_ia32_socketcall) {
 		socketcall_syscall_id = __NR_ia32_socketcall;
