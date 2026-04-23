@@ -58,11 +58,17 @@ static int32_t scap_modern_bpf__next(struct scap_engine_handle engine,
 	pman_consume_first_event((void**)pevent, (int16_t*)buffer_id);
 
 	if((*pevent) == NULL) {
-		/* The first time we sleep 500 us, if we have consecutive timeouts we can reach also 30 ms.
-		 */
-		usleep(HANDLE(engine)->m_retry_us);
-		HANDLE(engine)->m_retry_us =
-		        MIN(HANDLE(engine)->m_retry_us * 2, BUFFER_EMPTY_WAIT_TIME_US_MAX);
+		/* HS_FALCO_BUSYPOLL: skip the empty-ring sleep so the consumer returns
+		 * immediately and the caller re-enters. Trades one pegged core for lower
+		 * wake-up cadence; the goal is to drain per-CPU rings before producers
+		 * fill them on 96-CPU hosts where drops dominate open/close. */
+		if(!HANDLE(engine)->m_busypoll) {
+			/* The first time we sleep 500 us, if we have consecutive timeouts we can reach also 30
+			 * ms. */
+			usleep(HANDLE(engine)->m_retry_us);
+			HANDLE(engine)->m_retry_us =
+			        MIN(HANDLE(engine)->m_retry_us * 2, BUFFER_EMPTY_WAIT_TIME_US_MAX);
+		}
 		return SCAP_TIMEOUT;
 	} else {
 		HANDLE(engine)->m_retry_us = BUFFER_EMPTY_WAIT_TIME_US_START;
@@ -260,6 +266,11 @@ int32_t scap_modern_bpf__init(scap_t* handle, scap_open_args* oargs) {
 
 	/* Set an initial sleep time in case of timeouts. */
 	HANDLE(engine)->m_retry_us = BUFFER_EMPTY_WAIT_TIME_US_START;
+
+	/* HS_FALCO_BUSYPOLL: env-var-gated tight consumer loop for drop-rate A/B. */
+	const char* busypoll_env = getenv("HS_FALCO_BUSYPOLL");
+	HANDLE(engine)->m_busypoll =
+	        busypoll_env != NULL && busypoll_env[0] != '\0' && busypoll_env[0] != '0';
 
 	/* Load and attach */
 	ret = pman_open_probe();

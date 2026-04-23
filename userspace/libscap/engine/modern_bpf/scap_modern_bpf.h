@@ -34,4 +34,5 @@ struct modern_bpf_engine {
 	uint64_t m_schema_version;
 	bool capturing;
 	uint64_t m_flags;
+	bool m_busypoll; /* HS_FALCO_BUSYPOLL=1: skip empty-ring sleep to reduce consumer cadence */
 };
