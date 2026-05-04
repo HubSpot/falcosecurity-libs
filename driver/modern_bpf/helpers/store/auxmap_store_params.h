@@ -1551,6 +1551,13 @@ typedef struct {
 static __always_inline void apply_dynamic_snaplen(struct pt_regs *regs,
                                                   uint16_t *snaplen,
                                                   const dynamic_snaplen_args *input_args) {
+	/* HS: unconditional return so the compiler DCEs the switch below.
+	 * The full function body pushes 18 BPF fillers past the kernel 6.1
+	 * verifier complexity limit (pread64_x fails at 723 insns).
+	 * dynamic_snaplen is disabled in our falco config; this just moves
+	 * the dead-code elimination from runtime to compile time. */
+	return;
+
 	if(!maps__get_do_dynamic_snaplen()) {
 		return;
 	}
