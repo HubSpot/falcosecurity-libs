@@ -446,6 +446,15 @@ void pman_set_statsd_port(uint16_t statsd_port);
 void pman_set_scap_tid(int32_t scap_tid);
 
 /**
+ * @brief Set scap pid (tgid) so the BPF programs can drop events originating
+ * from the scap (falco) process before they reach the ring buffer. Pass 0 to
+ * disable the kernel-side self-filter.
+ *
+ * @param scap_pid
+ */
+void pman_set_scap_pid(int32_t scap_pid);
+
+/**
  * @brief Get API version to check it a runtime.
  *
  * @return API version

@@ -195,6 +195,15 @@ void pman_set_scap_tid(int32_t scap_tid) {
 	pman_update_capture_settings(&settings);
 }
 
+void pman_set_scap_pid(int32_t scap_pid) {
+	struct capture_settings settings;
+	if(pman_get_capture_settings(&settings) != 0) {
+		return;
+	}
+	settings.scap_pid = scap_pid;
+	pman_update_capture_settings(&settings);
+}
+
 void pman_fill_syscall_sampling_table() {
 	for(int syscall_id = 0; syscall_id < SYSCALL_TABLE_SIZE; syscall_id++) {
 		if(g_syscall_table[syscall_id].flags & UF_NEVER_DROP) {

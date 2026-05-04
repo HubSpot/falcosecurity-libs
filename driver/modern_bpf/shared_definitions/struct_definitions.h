@@ -33,6 +33,7 @@ struct capture_settings {
 	uint16_t fullcapture_port_range_end;   /* last interesting port */
 	uint16_t statsd_port;                  /* port for statsd metrics */
 	int32_t scap_tid;                      /* tid of the scap process */
+	int32_t scap_pid; /* tgid of the scap process; kernel-side self-filter */
 };
 
 /**
