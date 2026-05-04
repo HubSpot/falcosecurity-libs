@@ -259,69 +259,35 @@ static __always_inline uint16_t push__charbuf(uint8_t *data,
  * @return (uint16_t) the number of bytes written in the buffer. Could be '0' if the passed pointer
  * is not valid.
  */
-/* Naked noinline wrappers that mask offset and length before calling
- * the BPF helper. Two constraints require hand-written BPF assembly:
- *
- * 1. Kernel 6.1 verifier rejects bpf_probe_read size args that lose
- *    range constraints through stack spills. Clang's optimizer elides
- *    any C-level & 0xFFFF mask (even with asm barriers) when generating
- *    the u32 helper argument.
- *
- * 2. sendmmsg_x -> handle_exit -> push__read_user is 3 nested calls;
- *    optnone adds 32 bytes of stack that breaches the 512-byte limit.
- *
- * naked = no prologue/epilogue = zero stack usage. The explicit AND
- * instructions are visible to the verifier in every kernel version.
- *
- * Calling convention: R1=data R2=offset R3=len R4=src
- * After transform:    R1=data+masked_off R2=masked_len R3=src */
-static __attribute__((naked, noinline))
-int push__read_user(uint8_t *data, unsigned long offset,
-                    unsigned long len, unsigned long src) {
-	asm volatile(
-		"r2 &= 0xFFFF;"
-		"r1 += r2;"
-		"r2 = r3;"
-		"r2 &= 0xFFFF;"
-		"r3 = r4;"
-		"call 112;"
-		"exit;"
-		::: "r0","r1","r2","r3","r4","r5","memory"
-	);
-}
-
-static __attribute__((naked, noinline))
-int push__read_kernel(uint8_t *data, unsigned long offset,
-                      unsigned long len, unsigned long src) {
-	asm volatile(
-		"r2 &= 0xFFFF;"
-		"r1 += r2;"
-		"r2 = r3;"
-		"r2 &= 0xFFFF;"
-		"r3 = r4;"
-		"call 113;"
-		"exit;"
-		::: "r0","r1","r2","r3","r4","r5","memory"
-	);
-}
-
 static __always_inline uint16_t push__bytebuf(uint8_t *data,
                                               uint64_t *payload_pos,
                                               unsigned long bytebuf_pointer,
                                               uint16_t len_to_read,
                                               enum read_memory mem) {
+	/* Kernel 6.1 verifier loses scalar range constraints across stack
+	 * spills. When callers derive len_to_read from a signed long (e.g.
+	 * pread64_x uses the syscall ret), R2 arrives at bpf_probe_read as
+	 * an unconstrained scalar. C-level masks like len &= 0xFFFF get
+	 * optimized away because uint16_t is already 0-65535 at the type
+	 * level. The inline asm with %0 forces clang to emit an actual AND
+	 * instruction on whatever register holds the value — the +r
+	 * constraint then prevents substitution of the pre-mask value. */
+	unsigned long safe_len = (unsigned long)len_to_read;
+	asm volatile("%0 &= 0xFFFF" : "+r"(safe_len));
 	if(mem == KERNEL) {
-		if(push__read_kernel(data, *payload_pos, len_to_read,
-		                     bytebuf_pointer) != 0) {
+		if(bpf_probe_read_kernel(&data[SAFE_ACCESS(*payload_pos)],
+		                         safe_len,
+		                         (void *)bytebuf_pointer) != 0) {
 			return 0;
 		}
 	} else {
-		if(push__read_user(data, *payload_pos, len_to_read,
-		                   bytebuf_pointer) != 0) {
+		if(bpf_probe_read_user(&data[SAFE_ACCESS(*payload_pos)],
+		                       safe_len,
+		                       (void *)bytebuf_pointer) != 0) {
 			return 0;
 		}
 	}
 
-	*payload_pos += len_to_read;
-	return len_to_read;
+	*payload_pos += safe_len;
+	return safe_len;
 }

@@ -24,11 +24,6 @@ limitations under the License.
 #include <unistd.h>
 
 static int libbpf_print(enum libbpf_print_level level, const char *format, va_list args) {
-	va_list args_copy;
-	va_copy(args_copy, args);
-	vfprintf(stderr, format, args_copy);
-	va_end(args_copy);
-
 	enum falcosecurity_log_severity sev;
 	switch(level) {
 	case LIBBPF_WARN:
@@ -45,7 +40,7 @@ static int libbpf_print(enum libbpf_print_level level, const char *format, va_li
 	}
 
 	if(g_state.log_fn == NULL)
-		return 0;
+		return vfprintf(stderr, format, args);
 
 	// This should be already allocated by the caller, but if for some reason libbpf wants to log
 	// again after initialization we create a smaller buffer. We need a big buffer only for verifier
