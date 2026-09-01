@@ -989,3 +989,9 @@ or GPL2.txt for full copies of the license.
 #ifndef __NR_file_setattr
 #define __NR_file_setattr 469
 #endif
+#ifndef __NR_listns
+#define __NR_listns 470
+#endif
+#ifndef __NR_rseq_slice_yield
+#define __NR_rseq_slice_yield 471
+#endif
