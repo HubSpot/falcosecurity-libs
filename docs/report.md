@@ -62,6 +62,7 @@
 | fchmodat2               | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | fchown                  | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | fchownat                | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
+| fchroot                 | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | fcntl                   | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | fdatasync               | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | fgetxattr               | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
@@ -153,6 +154,7 @@
 | linkat                  | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | listen                  | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | listmount               | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
+| listns                  | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | listxattr               | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | listxattrat             | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | llistxattr              | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
@@ -169,7 +171,7 @@
 | mbind                   | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | membarrier              | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | memfd_create            | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
-| memfd_secret            | 🟡        | aarch64,riscv64,s390x,x86_64                     |
+| memfd_secret            | 🟡        | aarch64,loongarch64,riscv64,s390x,x86_64         |
 | migrate_pages           | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | mincore                 | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | mkdir                   | 🟢        | ppc64le,s390x,x86_64                             |
@@ -274,6 +276,7 @@
 | riscv_hwprobe           | 🟡        | riscv64                                          |
 | rmdir                   | 🟢        | ppc64le,s390x,x86_64                             |
 | rseq                    | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
+| rseq_slice_yield        | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | rt_sigaction            | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | rt_sigpending           | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | rt_sigprocmask          | 🟡        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
@@ -403,6 +406,7 @@
 | unlink                  | 🟢        | ppc64le,s390x,x86_64                             |
 | unlinkat                | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | unshare                 | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
+| uprobe                  | 🟡        | x86_64                                           |
 | uretprobe               | 🟡        | x86_64                                           |
 | userfaultfd             | 🟢        | aarch64,loongarch64,ppc64le,riscv64,s390x,x86_64 |
 | ustat                   | 🟡        | ppc64le,s390x,x86_64                             |
