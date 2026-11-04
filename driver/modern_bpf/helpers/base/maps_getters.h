@@ -112,6 +112,18 @@ static __always_inline int32_t maps__get_scap_tid() {
 	return settings->scap_tid;
 }
 
+/* HS_FALCO self-filter: drop events whose tgid matches the scap (falco) process,
+ * so the consumer thread's own syscalls never enter the ring buffer it drains.
+ * Returns true when the current task IS the scap process. scap_pid == 0 means
+ * "not yet set", in which case we conservatively do not filter. */
+static __always_inline bool maps__current_is_scap() {
+	struct capture_settings *settings = maps__get_capture_settings();
+	if(settings == NULL || settings->scap_pid == 0) {
+		return false;
+	}
+	return (int32_t)(bpf_get_current_pid_tgid() >> 32) == settings->scap_pid;
+}
+
 /*=============================== SETTINGS ===========================*/
 
 /*=============================== KERNEL CONFIGS ===========================*/

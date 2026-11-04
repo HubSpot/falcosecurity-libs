@@ -264,22 +264,32 @@ static __always_inline uint16_t push__bytebuf(uint8_t *data,
                                               unsigned long bytebuf_pointer,
                                               uint16_t len_to_read,
                                               enum read_memory mem) {
+	/* Kernel 6.1 verifier loses scalar range constraints across stack
+	 * spills. When callers derive len_to_read from a signed long (e.g.
+	 * pread64_x uses the syscall ret), R2 arrives at bpf_probe_read as
+	 * an unconstrained scalar. C-level masks like len &= 0xFFFF get
+	 * optimized away because uint16_t is already 0-65535 at the type
+	 * level. The inline asm with %0 forces clang to emit an actual AND
+	 * instruction on whatever register holds the value — the +r
+	 * constraint then prevents substitution of the pre-mask value. */
+	unsigned long safe_len = (unsigned long)len_to_read;
+	asm volatile("%0 &= 0xFFFF" : "+r"(safe_len));
 	if(mem == KERNEL) {
 		if(bpf_probe_read_kernel(&data[SAFE_ACCESS(*payload_pos)],
-		                         len_to_read,
+		                         safe_len,
 		                         (void *)bytebuf_pointer) != 0) {
 			return 0;
 		}
 	} else {
 		if(bpf_probe_read_user(&data[SAFE_ACCESS(*payload_pos)],
-		                       len_to_read,
+		                       safe_len,
 		                       (void *)bytebuf_pointer) != 0) {
 			return 0;
 		}
 	}
 
-	*payload_pos += len_to_read;
-	return len_to_read;
+	*payload_pos += safe_len;
+	return safe_len;
 }
 
 /**
